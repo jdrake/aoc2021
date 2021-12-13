@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-
-	mapset "github.com/deckarep/golang-set"
 )
 
 type Cave struct {
@@ -44,8 +42,10 @@ func parseFile() Graph {
 	for scanner.Scan() {
 		line := scanner.Text()
 		parts := strings.Split(line, "-")
-		caveFrom := Cave{parts[0]}
-		caveTo := Cave{parts[1]}
+		caveFrom, caveTo := Cave{parts[0]}, Cave{parts[1]}
+		if caveTo.name == "start" || caveFrom.name == "end" {
+			caveTo, caveFrom = caveFrom, caveTo
+		}
 		_, caveFromExists := graph.caves[caveFrom]
 		if caveFromExists {
 			graph.caves[caveFrom] = append(graph.caves[caveFrom], caveTo)
@@ -53,7 +53,7 @@ func parseFile() Graph {
 			graph.caves[caveFrom] = []Cave{caveTo}
 		}
 		// Don't add reverse path for start or end
-		if parts[0] != "start" && parts[1] != "end" {
+		if caveFrom.name != "start" && caveTo.name != "end" {
 			_, caveToExists := graph.caves[caveTo]
 			if caveToExists {
 				graph.caves[caveTo] = append(graph.caves[caveTo], caveFrom)
@@ -65,29 +65,43 @@ func parseFile() Graph {
 	return graph
 }
 
-func (graph *Graph) FindPath(path []Cave, smallCaves mapset.Set, fromCave Cave) {
+func CopyMap(m map[Cave]int) map[Cave]int {
+	newMap := make(map[Cave]int, len(m))
+	for k, v := range m {
+		newMap[k] = v
+	}
+	return newMap
+}
+
+func (graph *Graph) FindPath(path []Cave, smallCaves map[Cave]int, fromCave Cave, canVisitSmallCaveTwice bool) {
 	path = append(path, fromCave)
 	if fromCave.IsSmall() {
-		smallCaves.Add(fromCave)
+		smallCaves[fromCave] += 1
 	}
 	if fromCave.name == "end" {
-		fmt.Println(path)
 		_path := make([]Cave, len(path))
 		copy(_path, path)
 		graph.paths = append(graph.paths, _path)
 	} else {
 		for _, toCave := range graph.caves[fromCave] {
-			if !smallCaves.Contains(toCave) {
-				graph.FindPath(path, smallCaves.Clone(), toCave)
+			if toCave.IsSmall() {
+				_, visited := smallCaves[toCave]
+				if visited && canVisitSmallCaveTwice {
+					graph.FindPath(path, CopyMap(smallCaves), toCave, false)
+				} else if !visited {
+					graph.FindPath(path, CopyMap(smallCaves), toCave, canVisitSmallCaveTwice)
+				}
+			} else {
+				graph.FindPath(path, CopyMap(smallCaves), toCave, canVisitSmallCaveTwice)
 			}
 		}
 	}
 }
 
 func (graph *Graph) FindPaths() {
-	smallCaves := mapset.NewSet()
+	smallCaves := make(map[Cave]int)
 	var path []Cave
-	graph.FindPath(path, smallCaves, Cave{"start"})
+	graph.FindPath(path, smallCaves, Cave{"start"}, true)
 	for _, p := range graph.paths {
 		var elems []string
 		for _, c := range p {
