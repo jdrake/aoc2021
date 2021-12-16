@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func parseFile() map[Point]int {
@@ -35,6 +36,50 @@ func parseFile() map[Point]int {
 		}
 		y += 1
 	}
+	size := y
+
+	for i := 1; i < 5; i++ {
+		for relY := 0; relY < size; relY++ {
+			for relX := 0; relX < size; relX++ {
+				baseP := Point{
+					x: (i-1)*size + relX,
+					y: relY,
+				}
+				p := Point{
+					x: i*size + relX,
+					y: relY,
+				}
+				value := points[baseP] + 1
+				if value > 9 {
+					value = 1
+				}
+				points[p] = value
+			}
+		}
+	}
+
+	for i := 0; i < 5; i++ {
+		for j := 1; j < 5; j++ {
+			for relY := 0; relY < size; relY++ {
+				for relX := 0; relX < size; relX++ {
+					baseP := Point{
+						x: (i * size) + relX,
+						y: (j-1)*size + relY,
+					}
+					p := Point{
+						x: (i * size) + relX,
+						y: j*size + relY,
+					}
+					value := points[baseP] + 1
+					if value > 9 {
+						value = 1
+					}
+					points[p] = value
+				}
+			}
+		}
+	}
+
 	return points
 }
 
@@ -42,20 +87,20 @@ func h(start Point, goal Point) int {
 	return int(math.Abs(float64(start.x-goal.x))) + int(math.Abs(float64(start.y-goal.y)))
 }
 
-func reconstructPath(cameFrom map[Point]Point, current Point) []Point {
-	var path []Point
-	path = append(path, current)
-	for {
-		next, exists := cameFrom[current]
-		if exists {
-			current = next
-			path = append(path, current)
-		} else {
-			break
-		}
-	}
-	return path
-}
+// func reconstructPath(cameFrom map[Point]Point, current Point) []Point {
+// 	var path []Point
+// 	path = append(path, current)
+// 	for {
+// 		next, exists := cameFrom[current]
+// 		if exists {
+// 			current = next
+// 			path = append(path, current)
+// 		} else {
+// 			break
+// 		}
+// 	}
+// 	return path
+// }
 
 type AStarError struct {
 	Message string
@@ -66,17 +111,13 @@ func (e *AStarError) Error() string {
 }
 
 var vectors = [4][2]int{
-	// {-1, -1},
 	{-1, 0},
-	// {-1, 1},
 	{0, -1},
 	{0, 1},
-	// {1, -1},
 	{1, 0},
-	// {1, 1},
 }
 
-func AStar(points map[Point]int) ([]Point, error) {
+func AStar(points map[Point]int) (int, error) {
 	size := int(math.Sqrt(float64(len(points))))
 	start, goal := Point{0, 0}, Point{size - 1, size - 1}
 	openSet := make(PriorityQueue, 1)
@@ -100,9 +141,9 @@ func AStar(points map[Point]int) ([]Point, error) {
 	for openSet.Len() > 0 {
 		current := heap.Pop(&openSet).(*Item)
 		delete(openSetCache, current.value)
-		fmt.Println("current", current.value, current.priority)
+		// fmt.Println("current", current.value, current.priority)
 		if current.value == goal {
-			return reconstructPath(cameFrom, current.value), nil
+			return current.priority, nil
 		}
 
 		for _, vector := range vectors {
@@ -134,10 +175,28 @@ func AStar(points map[Point]int) ([]Point, error) {
 		}
 	}
 
-	return nil, &AStarError{"no path to goal"}
+	return 0, &AStarError{"no path to goal"}
+}
+
+func PrintGrid(grid map[Point]int) {
+	for y := 0; y < 50; y++ {
+		row := ""
+		for x := 0; x < 50; x++ {
+			row += strconv.Itoa(grid[Point{x, y}])
+		}
+		fmt.Println(row)
+	}
 }
 
 func Day15() {
+	start := time.Now()
 	points := parseFile()
+	t1 := time.Now()
+	elapsed := t1.Sub(start)
+	fmt.Println(elapsed)
+	// PrintGrid(points)
 	fmt.Println(AStar(points))
+	t2 := time.Now()
+	elapsed = t2.Sub(t1)
+	fmt.Println(elapsed)
 }
