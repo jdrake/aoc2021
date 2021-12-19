@@ -234,21 +234,24 @@ func Main() {
 
 	lines := parseFile("input")
 
-	left := parseTree(lines[0])
-	fmt.Println("start", left)
-	fmt.Println("----")
-	for _, line := range lines[1:] {
-		root := &Node{value: -1}
-		left.parent = root
-		right := parseTree(line)
-		right.parent = root
-		root.left = left
-		root.right = right
-		left = root.ReduceFull()
-		fmt.Println("----")
-		fmt.Println(left)
+	var combos []string
+	for _, a := range lines {
+		for _, b := range lines {
+			if a != b {
+				combos = append(combos, "["+a+","+b+"]")
+			}
+		}
 	}
-	fmt.Println(left.Magnitude())
+
+	max := 0
+	for _, line := range combos {
+		tree := parseTree(line)
+		tree.ReduceFull()
+		if mag := tree.Magnitude(); mag > max {
+			max = mag
+			fmt.Println("new max", line, mag)
+		}
+	}
 
 	// tree := parseTree("[[[[8,7],[7,7]],[[8,6],[7,7]]],[[[0,7],[6,6]],[8,7]]]")
 	// fmt.Println(tree)
