@@ -213,15 +213,6 @@ func (s Scanner) String() string {
 	return fmt.Sprintf("--- Scanner %s ---%s\n", s.id, beacons)
 }
 
-// func (s *Scanner) VectorSet() mapset.Set {
-// 	beacons := make([]interface{}, len(s.beacons))
-// 	for i := range s.beacons {
-// 		beacons[i] = s.beacons[i]
-// 	}
-// 	beaconSet := mapset.NewSetFromSlice(beacons)
-// 	return beaconSet
-// }
-
 func parseFile(name string) []*Scanner {
 	_, fileName, _, _ := runtime.Caller(0)
 	prefixPath := filepath.Dir(fileName)
@@ -257,12 +248,6 @@ func parseFile(name string) []*Scanner {
 	return scanners
 }
 
-type ScannerPair struct {
-	base     *Scanner
-	target   *Scanner
-	rotation []mat.Matrix
-}
-
 func Rotate(rotation mat.Matrix, vector *Vector) Vector {
 	v := mat.NewDense(3, 1, []float64{
 		float64(vector.x), float64(vector.y), float64(vector.z),
@@ -276,59 +261,6 @@ func Rotate(rotation mat.Matrix, vector *Vector) Vector {
 	}
 }
 
-func xAxisRotation(theta float64) mat.Matrix {
-	return mat.NewDense(3, 3, []float64{
-		1, 0, 0,
-		0, math.Round(math.Cos(theta)), math.Round(-math.Sin(theta)),
-		0, math.Round(math.Sin(theta)), math.Round(math.Cos(theta)),
-	})
-}
-
-func yAxisRotation(theta float64) mat.Matrix {
-	return mat.NewDense(3, 3, []float64{
-		math.Round(math.Cos(theta)), 0, math.Round(math.Sin(theta)),
-		0, 1, 0,
-		math.Round(-math.Sin(theta)), 0, math.Round(math.Cos(theta)),
-	})
-
-}
-
-func zAxisRotation(theta float64) mat.Matrix {
-	return mat.NewDense(3, 3, []float64{
-		math.Round(math.Cos(theta)), math.Round(-math.Sin(theta)), 0,
-		math.Round(math.Sin(theta)), math.Round(math.Cos(theta)), 0,
-		0, 0, 1,
-	})
-}
-
-// var orientations = []*Vector{
-// 	{1, 1, 1},
-// 	{-1, 1, 1},
-// }
-
-// type Transformation struct {
-// 	// orientation *Vector
-// 	rotation []mat.Matrix
-// }
-
-// func (t Transformation) String() string {
-// 	return fmt.Sprintf("orientation=(%d,%d,%d) rotation=%v", t.orientation.x, t.orientation.y, t.orientation.z, mat.Formatted(*t.rotation))
-// }
-
-// func (t *Transformation) Apply(v *Vector) Vector {
-// 	vector := t.orientation.Multiply(v)
-// 	vector = Rotate(t.rotation, &vector)
-// 	return vector
-// }
-
-// type SortedVectors []*Vector
-
-// func (s SortedVectors) Len() int      { return len(s) }
-// func (s SortedVectors) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
-// func (s SortedVectors) Less(i, j int) bool {
-// 	return s[i].x < s[j].x && s[i].y < s[j].y && s[i].z < s[j].z
-// }
-
 // Find the orientation vector and rotation matrix from v1 -> v0
 func FindTransform(v0 *Vector, v1 *Vector) (mat.Matrix, bool) {
 	// fmt.Println("Try to match", v0)
@@ -341,14 +273,6 @@ func FindTransform(v0 *Vector, v1 *Vector) (mat.Matrix, bool) {
 	}
 	return nil, false
 }
-
-// func Rotations(r func(float64) mat.Matrix) []mat.Matrix {
-// 	var rotations []mat.Matrix
-// 	for theta := float64(0); theta < float64(2)*math.Pi; theta += math.Pi / 2 {
-// 		rotations = append(rotations, r(theta))
-// 	}
-// 	return rotations
-// }
 
 func VectorPairs(s1 *Scanner, s2 *Scanner) [][][]*Vector {
 	fmt.Println("--- Comparing", s1.id, "to", s2.id)
@@ -388,19 +312,6 @@ func FindRotation(s1 *Scanner, s2 *Scanner) (mat.Matrix, [][]*Vector) {
 	fmt.Println("chose rotation:", maxR, foundRotations[maxR][0])
 	return maxR, foundRotations[maxR][0]
 }
-
-// type ScannerParent struct {
-// 	id        string
-// 	rotations [][]mat.Matrix
-// }
-
-// func (sp *ScannerParent) Apply(v *Vector) Vector {
-// 	newVector := *v
-// 	for ri := len(sp.rotations) - 1; ri >= 0; ri-- {
-// 		newVector = newVector.Apply(sp.rotations[ri])
-// 	}
-// 	return newVector
-// }
 
 type ScannerNode struct {
 	scanner          *Scanner
@@ -505,45 +416,11 @@ func TraverseScannerTree(seen mapset.Set, node *ScannerNode) {
 	}
 }
 
-// func PositionScanners(node *ScannerNode) {
-// 	for _, child := range node.children {
-// 		r := node.scannerRotations[child.scanner.id]
-// 		// var m mat.Dense
-// 		// m.Copy(r)
-// 		// var inv mat.Dense
-// 		// inv.Inverse(&m)
-// 		newVector := Rotate(r, node.scannerVectors[child.scanner.id])
-// 		position := node.position.Add(&newVector)
-// 		child.position = &position
-// 		fmt.Println("scanner", child.scanner.id, "new position", child.position)
-// 		PositionScanners(child)
-// 	}
-// }
-
 func Main() {
-	// v1 := &Vector{68, -1246, -43}
-	// v2 := &Vector{88, 113, -1104}
-	// // v := v2.Subtract(v1)
-	// r := mat.NewDense(3, 3, []float64{
-	// 	-1, 0, 0,
-	// 	0, 1, 0,
-	// 	0, 0, -1,
-	// })
-	// // r := mat.NewDense(3, 3, []float64{
-	// // 	0, 1, 0,
-	// // 	0, 0, -1,
-	// // 	-1, 0, 0,
-	// // })
-	// v := Rotate(r, v2)
-	// v = v1.Add(&v)
-	// fmt.Println(v)
-	// return
-
-	scanners := parseFile("test2")
+	scanners := parseFile("input")
 
 	graph := make(map[string][]string)
 	cs := combin.Combinations(len(scanners), 2)
-	// cs := [][]int{{1, 4}}
 	for _, sc := range cs {
 		s1 := scanners[sc[0]]
 		s2 := scanners[sc[1]]
@@ -566,19 +443,25 @@ func Main() {
 		}
 	}
 
-	for i := 0; i < len(scanners); i++ {
-		id := strconv.Itoa(i)
-		_, found := graph[id]
-		if !found {
-			log.Fatal("not found " + id)
-		}
-		fmt.Println(id, "=>", graph[id])
-	}
-
-	fmt.Println()
-	fmt.Println()
 	node := BuildScannerTree(scanners, graph)
 	seen := mapset.NewSet()
+	node.scannerVectors["0"] = &Vector{0, 0, 0}
 	TraverseScannerTree(seen, node)
-	// PositionScanners(node)
+
+	var scannerVectors []*Vector
+	for _, v := range node.scannerVectors {
+		scannerVectors = append(scannerVectors, v)
+	}
+	sv := combin.Combinations(len(scannerVectors), 2)
+	max := 0
+	for _, pair := range sv {
+		s1 := scannerVectors[pair[0]]
+		s2 := scannerVectors[pair[1]]
+		d := int(math.Abs(float64(s2.x-s1.x))) + int(math.Abs(float64(s2.y-s1.y))) + int(math.Abs(float64(s2.z-s1.z)))
+		if d > max {
+			max = d
+		}
+	}
+	fmt.Println("largest distance:", max)
+
 }
