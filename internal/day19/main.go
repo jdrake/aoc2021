@@ -403,16 +403,22 @@ func FindRotation(s1 *Scanner, s2 *Scanner) (mat.Matrix, [][]*Vector) {
 // }
 
 type ScannerNode struct {
-	scanner   *Scanner
-	beaconSet mapset.Set
-	parent    *ScannerNode
-	children  []*ScannerNode
+	scanner          *Scanner
+	beaconSet        mapset.Set
+	parent           *ScannerNode
+	children         []*ScannerNode
+	scannerVectors   map[string]*Vector
+	scannerRotations map[string]mat.Matrix
+	position         *Vector
 }
 
 func BuildScannerTree(scanners []*Scanner, graph map[string][]string) *ScannerNode {
 	root := &ScannerNode{
-		scanner:   scanners[0],
-		beaconSet: mapset.NewSet(),
+		scanner:          scanners[0],
+		beaconSet:        mapset.NewSet(),
+		scannerVectors:   make(map[string]*Vector),
+		scannerRotations: make(map[string]mat.Matrix),
+		position:         &Vector{0, 0, 0},
 	}
 	q := list.New()
 	q.PushBack(root)
@@ -426,9 +432,11 @@ func BuildScannerTree(scanners []*Scanner, graph map[string][]string) *ScannerNo
 			if !seen.Contains(childId) {
 				i, _ := strconv.Atoi(childId)
 				child := &ScannerNode{
-					scanner:   scanners[i],
-					beaconSet: mapset.NewSet(),
-					parent:    parent,
+					scanner:          scanners[i],
+					beaconSet:        mapset.NewSet(),
+					parent:           parent,
+					scannerVectors:   make(map[string]*Vector),
+					scannerRotations: make(map[string]mat.Matrix),
 				}
 				parent.children = append(parent.children, child)
 				q.PushBack(child)
@@ -453,7 +461,7 @@ func TransformBeacons(s1 *Scanner, s2 *Scanner) (mat.Matrix, *Vector) {
 	s2_b0_rel_s1 := Rotate(r, &s2_b0_rel_s2)
 	// Add the transformed vector to the first beacon of the base scanner to get the position of the target scanner relative to the base scanner
 	s1_rel_s0 := s1_b0.Add(&s2_b0_rel_s1)
-	fmt.Println("scanner", s2.id, "relative to", s1.id, s1_rel_s0)
+	// fmt.Println("scanner", s2.id, "relative to", s1.id, s1_rel_s0)
 	return r, &s1_rel_s0
 }
 
@@ -481,23 +489,57 @@ func TraverseScannerTree(seen mapset.Set, node *ScannerNode) {
 				// fmt.Println(b, "->", newVector)
 				node.beaconSet.Add(newVector)
 			}
+			node.scannerRotations[child.scanner.id] = r
+			node.scannerVectors[child.scanner.id] = s1_rel_s0
+			for gcid, gcv := range child.scannerVectors {
+				newVector := Rotate(r, gcv)
+				newVector = s1_rel_s0.Add(&newVector)
+				node.scannerVectors[gcid] = &newVector
+			}
 		}
 	}
-	fmt.Println("total beacons for scanner", node.scanner.id, "=", node.beaconSet.Cardinality())
+	// fmt.Println("total beacons for scanner", node.scanner.id, "=", node.beaconSet.Cardinality())
+	fmt.Println("child scanners relative to", node.scanner.id, ":")
+	for id, v := range node.scannerVectors {
+		fmt.Println(id, v)
+	}
 }
 
-func Main() {
-	// var rotations [][]mat.Matrix
-	// for _, rx := range Rotations(xAxisRotation) {
-	// 	for _, ry := range Rotations(yAxisRotation) {
-	// 		for _, rz := range Rotations(zAxisRotation) {
-	// 			rotations = append(rotations, []mat.Matrix{rx, ry, rz})
-	// 		}
-	// 	}
-	// }
-	// fmt.Println("rotation count:", len(rotations))
+// func PositionScanners(node *ScannerNode) {
+// 	for _, child := range node.children {
+// 		r := node.scannerRotations[child.scanner.id]
+// 		// var m mat.Dense
+// 		// m.Copy(r)
+// 		// var inv mat.Dense
+// 		// inv.Inverse(&m)
+// 		newVector := Rotate(r, node.scannerVectors[child.scanner.id])
+// 		position := node.position.Add(&newVector)
+// 		child.position = &position
+// 		fmt.Println("scanner", child.scanner.id, "new position", child.position)
+// 		PositionScanners(child)
+// 	}
+// }
 
-	scanners := parseFile("input")
+func Main() {
+	// v1 := &Vector{68, -1246, -43}
+	// v2 := &Vector{88, 113, -1104}
+	// // v := v2.Subtract(v1)
+	// r := mat.NewDense(3, 3, []float64{
+	// 	-1, 0, 0,
+	// 	0, 1, 0,
+	// 	0, 0, -1,
+	// })
+	// // r := mat.NewDense(3, 3, []float64{
+	// // 	0, 1, 0,
+	// // 	0, 0, -1,
+	// // 	-1, 0, 0,
+	// // })
+	// v := Rotate(r, v2)
+	// v = v1.Add(&v)
+	// fmt.Println(v)
+	// return
+
+	scanners := parseFile("test2")
 
 	graph := make(map[string][]string)
 	cs := combin.Combinations(len(scanners), 2)
@@ -532,70 +574,11 @@ func Main() {
 		}
 		fmt.Println(id, "=>", graph[id])
 	}
-	// return
 
 	fmt.Println()
 	fmt.Println()
 	node := BuildScannerTree(scanners, graph)
 	seen := mapset.NewSet()
 	TraverseScannerTree(seen, node)
-
-	// // keep track of a master map of beacons from s0 perspective
-	// // keep track of list of rotations to perform with each new level, e.g. [0 <- 1, 1 <- 4]
-	// // for each level, apply transforms in reverse order and add to master map of beacons
-	// beaconMap := make(map[Vector]int)
-	// fmt.Println(graph)
-	// q := list.New()
-	// q.PushBack(&ScannerParent{id: "0"})
-	// seen := mapset.NewSet()
-	// for q.Len() > 0 {
-	// 	el := q.Front()
-	// 	q.Remove(el)
-	// 	sp := el.Value.(*ScannerParent)
-	// 	i, _ := strconv.Atoi(sp.id)
-	// 	s1 := scanners[i]
-	// 	seen.Add(sp.id)
-	// 	for _, neighbor := range graph[sp.id] {
-	// 		if !seen.Contains(neighbor) {
-	// 			j, _ := strconv.Atoi(neighbor)
-	// 			s2 := scanners[j]
-	// 			// Find list of rotations from s2 -> s1
-	// 			r, beaconPair := FindRotation(rotations, s1, s2)
-	// 			fmt.Println("Rotations:")
-	// 			for _, rot := range r {
-	// 				fmt.Println(rot)
-	// 			}
-	// 			s1_b0, _ := beaconPair[0][0], beaconPair[0][1]
-	// 			s2_b0, _ := beaconPair[1][0], beaconPair[1][1]
-	// 			// Invert the first beacon's coordinates to get the position of the target scanner relative to the beacon
-	// 			inverse := &Vector{-1, -1, -1}
-	// 			s2_b0_rel_s2 := inverse.Multiply(s2_b0)
-	// 			// Transform the beacon->scanner vector so its relative to the first beacon of the base scanner
-	// 			s2_b0_rel_s1 := s2_b0_rel_s2.Apply(r)
-	// 			// s2_b0_rel_s1 = sp.Apply(&s2_b0_rel_s1)
-	// 			// Add the transformed vector to the first beacon of the base scanner to get the position of the target scanner relative to the base scanner
-	// 			s1_rel_s0 := s1_b0.Add(&s2_b0_rel_s1)
-	// 			fmt.Println("scanner", s2.id, "relative to 0:", s1_rel_s0)
-	// 			for _, b := range s2.beacons {
-	// 				newVector := b.Apply(r)
-	// 				newVector = sp.Apply(&newVector)
-	// 				newVector = s1_rel_s0.Add(&newVector)
-	// 				fmt.Println(b, "->", newVector)
-	// 				beaconMap[newVector] += 1
-	// 			}
-	// 			parentRotations := append(sp.rotations, r)
-	// 			q.PushBack(&ScannerParent{
-	// 				id:        s2.id,
-	// 				rotations: parentRotations,
-	// 			})
-	// 		}
-	// 	}
-	// }
-
-	// fmt.Println("---")
-	// fmt.Println("Beacons from s0:")
-	// for b := range beaconMap {
-	// 	fmt.Println(b)
-	// }
-
+	// PositionScanners(node)
 }
