@@ -18,6 +18,129 @@ import (
 	"gonum.org/v1/gonum/stat/combin"
 )
 
+var rotations = []mat.Matrix{
+	mat.NewDense(3, 3, []float64{
+		1, 0, 0,
+		0, 1, 0,
+		0, 0, 1,
+	}),
+	mat.NewDense(3, 3, []float64{
+		1, 0, 0,
+		0, 0, -1,
+		0, 1, 0,
+	}),
+	mat.NewDense(3, 3, []float64{
+		1, 0, 0,
+		0, -1, 0,
+		0, 0, -1,
+	}),
+	mat.NewDense(3, 3, []float64{
+		1, 0, 0,
+		0, 0, 1,
+		0, -1, 0,
+	}),
+	mat.NewDense(3, 3, []float64{
+		0, -1, 0,
+		1, 0, 0,
+		0, 0, 1,
+	}),
+	mat.NewDense(3, 3, []float64{
+		0, 0, 1,
+		1, 0, 0,
+		0, 1, 0,
+	}),
+	mat.NewDense(3, 3, []float64{
+		0, 1, 0,
+		1, 0, 0,
+		0, 0, -1,
+	}),
+	mat.NewDense(3, 3, []float64{
+		0, 0, -1,
+		1, 0, 0,
+		0, -1, 0,
+	}),
+	mat.NewDense(3, 3, []float64{
+		-1, 0, 0,
+		0, -1, 0,
+		0, 0, 1,
+	}),
+	mat.NewDense(3, 3, []float64{
+		-1, 0, 0,
+		0, 0, -1,
+		0, -1, 0,
+	}),
+	mat.NewDense(3, 3, []float64{
+		-1, 0, 0,
+		0, 1, 0,
+		0, 0, -1,
+	}),
+	mat.NewDense(3, 3, []float64{
+		-1, 0, 0,
+		0, 0, 1,
+		0, 1, 0,
+	}),
+	mat.NewDense(3, 3, []float64{
+		0, 1, 0,
+		-1, 0, 0,
+		0, 0, 1,
+	}),
+	mat.NewDense(3, 3, []float64{
+		0, 0, 1,
+		-1, 0, 0,
+		0, -1, 0,
+	}),
+	mat.NewDense(3, 3, []float64{
+		0, -1, 0,
+		-1, 0, 0,
+		0, 0, -1,
+	}),
+	mat.NewDense(3, 3, []float64{
+		0, 0, -1,
+		-1, 0, 0,
+		0, 1, 0,
+	}),
+	mat.NewDense(3, 3, []float64{
+		0, 0, -1,
+		0, 1, 0,
+		1, 0, 0,
+	}),
+	mat.NewDense(3, 3, []float64{
+		0, 1, 0,
+		0, 0, 1,
+		1, 0, 0,
+	}),
+	mat.NewDense(3, 3, []float64{
+		0, 0, 1,
+		0, -1, 0,
+		1, 0, 0,
+	}),
+	mat.NewDense(3, 3, []float64{
+		0, -1, 0,
+		0, 0, -1,
+		1, 0, 0,
+	}),
+	mat.NewDense(3, 3, []float64{
+		0, 0, -1,
+		0, -1, 0,
+		-1, 0, 0,
+	}),
+	mat.NewDense(3, 3, []float64{
+		0, -1, 0,
+		0, 0, 1,
+		-1, 0, 0,
+	}),
+	mat.NewDense(3, 3, []float64{
+		0, 0, 1,
+		0, 1, 0,
+		-1, 0, 0,
+	}),
+	mat.NewDense(3, 3, []float64{
+		0, 1, 0,
+		0, 0, -1,
+		-1, 0, 0,
+	}),
+}
+
 type Vector struct {
 	x, y, z int
 }
@@ -56,14 +179,6 @@ func (v *Vector) Subtract(v2 *Vector) Vector {
 	return Vector{v2.x - v.x, v2.y - v.y, v2.z - v.z}
 }
 
-func (v *Vector) Apply(rotations []mat.Matrix) Vector {
-	vector := *v
-	for _, r := range rotations {
-		vector = Rotate(r, &vector)
-	}
-	return vector
-}
-
 type Scanner struct {
 	id      string
 	beacons []*Vector
@@ -71,12 +186,11 @@ type Scanner struct {
 
 func (s *Scanner) VectorDistances() map[float64][]*Vector {
 	distances := make(map[float64][]*Vector)
-	for _, b1 := range s.beacons {
-		for _, b2 := range s.beacons {
-			if b2 != b1 {
-				distances[Distance(b1, b2)] = []*Vector{b1, b2}
-			}
-		}
+	cs := combin.Combinations(len(s.beacons), 2)
+	for _, c := range cs {
+		b1 := s.beacons[c[0]]
+		b2 := s.beacons[c[1]]
+		distances[Distance(b1, b2)] = []*Vector{b1, b2}
 	}
 	return distances
 }
@@ -99,14 +213,14 @@ func (s Scanner) String() string {
 	return fmt.Sprintf("--- Scanner %s ---%s\n", s.id, beacons)
 }
 
-func (s *Scanner) VectorSet() mapset.Set {
-	beacons := make([]interface{}, len(s.beacons))
-	for i := range s.beacons {
-		beacons[i] = s.beacons[i]
-	}
-	beaconSet := mapset.NewSetFromSlice(beacons)
-	return beaconSet
-}
+// func (s *Scanner) VectorSet() mapset.Set {
+// 	beacons := make([]interface{}, len(s.beacons))
+// 	for i := range s.beacons {
+// 		beacons[i] = s.beacons[i]
+// 	}
+// 	beaconSet := mapset.NewSetFromSlice(beacons)
+// 	return beaconSet
+// }
 
 func parseFile(name string) []*Scanner {
 	_, fileName, _, _ := runtime.Caller(0)
@@ -216,13 +330,10 @@ func zAxisRotation(theta float64) mat.Matrix {
 // }
 
 // Find the orientation vector and rotation matrix from v1 -> v0
-func FindTransform(rotations [][]mat.Matrix, v0 *Vector, v1 *Vector) ([]mat.Matrix, bool) {
+func FindTransform(v0 *Vector, v1 *Vector) (mat.Matrix, bool) {
 	// fmt.Println("Try to match", v0)
 	for _, r := range rotations {
-		rx, ry, rz := r[0], r[1], r[2]
-		vector := Rotate(rx, v1)
-		vector = Rotate(ry, &vector)
-		vector = Rotate(rz, &vector)
+		vector := Rotate(r, v1)
 		if vector.Equals(v0) {
 			// fmt.Println("Found vector match:", vector)
 			return r, true
@@ -231,13 +342,13 @@ func FindTransform(rotations [][]mat.Matrix, v0 *Vector, v1 *Vector) ([]mat.Matr
 	return nil, false
 }
 
-func Rotations(r func(float64) mat.Matrix) []mat.Matrix {
-	var rotations []mat.Matrix
-	for theta := float64(0); theta < float64(2)*math.Pi; theta += math.Pi / 2 {
-		rotations = append(rotations, r(theta))
-	}
-	return rotations
-}
+// func Rotations(r func(float64) mat.Matrix) []mat.Matrix {
+// 	var rotations []mat.Matrix
+// 	for theta := float64(0); theta < float64(2)*math.Pi; theta += math.Pi / 2 {
+// 		rotations = append(rotations, r(theta))
+// 	}
+// 	return rotations
+// }
 
 func VectorPairs(s1 *Scanner, s2 *Scanner) [][][]*Vector {
 	fmt.Println("--- Comparing", s1.id, "to", s2.id)
@@ -254,32 +365,42 @@ func VectorPairs(s1 *Scanner, s2 *Scanner) [][][]*Vector {
 	return beaconPairs
 }
 
-func FindRotation(rotations [][]mat.Matrix, s1 *Scanner, s2 *Scanner) ([]mat.Matrix, [][]*Vector) {
+func FindRotation(s1 *Scanner, s2 *Scanner) (mat.Matrix, [][]*Vector) {
 	beaconPairs := VectorPairs(s1, s2)
+	foundRotations := make(map[mat.Matrix][][][]*Vector)
 	for _, pair := range beaconPairs {
 		v0 := pair[0][1].Subtract(pair[0][0])
 		v1 := pair[1][1].Subtract(pair[1][0])
-		r, found := FindTransform(rotations, &v0, &v1)
+		r, found := FindTransform(&v0, &v1)
 		if found {
-			fmt.Println(pair)
-			return r, pair
+			// fmt.Println("found rotation:", r, pair)
+			foundRotations[r] = append(foundRotations[r], pair)
 		}
 	}
-	return nil, nil
-}
-
-type ScannerParent struct {
-	id        string
-	rotations [][]mat.Matrix
-}
-
-func (sp *ScannerParent) Apply(v *Vector) Vector {
-	newVector := *v
-	for ri := len(sp.rotations) - 1; ri >= 0; ri-- {
-		newVector = newVector.Apply(sp.rotations[ri])
+	maxPairCount := 0
+	var maxR mat.Matrix
+	for r, pairs := range foundRotations {
+		if len(pairs) > maxPairCount {
+			maxPairCount = len(pairs)
+			maxR = r
+		}
 	}
-	return newVector
+	fmt.Println("chose rotation:", maxR, foundRotations[maxR][0])
+	return maxR, foundRotations[maxR][0]
 }
+
+// type ScannerParent struct {
+// 	id        string
+// 	rotations [][]mat.Matrix
+// }
+
+// func (sp *ScannerParent) Apply(v *Vector) Vector {
+// 	newVector := *v
+// 	for ri := len(sp.rotations) - 1; ri >= 0; ri-- {
+// 		newVector = newVector.Apply(sp.rotations[ri])
+// 	}
+// 	return newVector
+// }
 
 type ScannerNode struct {
 	scanner   *Scanner
@@ -318,27 +439,26 @@ func BuildScannerTree(scanners []*Scanner, graph map[string][]string) *ScannerNo
 	return root
 }
 
-func TransformBeacons(rotations [][]mat.Matrix, s1 *Scanner, s2 *Scanner) ([]mat.Matrix, *Vector) {
+func TransformBeacons(s1 *Scanner, s2 *Scanner) (mat.Matrix, *Vector) {
 	// Find list of rotations from s2 -> s1
-	r, beaconPair := FindRotation(rotations, s1, s2)
-	fmt.Println("Rotations:")
-	for _, rot := range r {
-		fmt.Println(rot)
-	}
+	r, beaconPair := FindRotation(s1, s2)
+	fmt.Println("Rotation:")
+	fmt.Println(r)
 	s1_b0, _ := beaconPair[0][0], beaconPair[0][1]
 	s2_b0, _ := beaconPair[1][0], beaconPair[1][1]
 	// Invert the first beacon's coordinates to get the position of the target scanner relative to the beacon
 	inverse := &Vector{-1, -1, -1}
 	s2_b0_rel_s2 := inverse.Multiply(s2_b0)
 	// Transform the beacon->scanner vector so its relative to the first beacon of the base scanner
-	s2_b0_rel_s1 := s2_b0_rel_s2.Apply(r)
+	s2_b0_rel_s1 := Rotate(r, &s2_b0_rel_s2)
 	// Add the transformed vector to the first beacon of the base scanner to get the position of the target scanner relative to the base scanner
 	s1_rel_s0 := s1_b0.Add(&s2_b0_rel_s1)
 	fmt.Println("scanner", s2.id, "relative to", s1.id, s1_rel_s0)
 	return r, &s1_rel_s0
 }
 
-func TraverseScannerTree(rotations [][]mat.Matrix, node *ScannerNode) {
+func TraverseScannerTree(seen mapset.Set, node *ScannerNode) {
+	seen.Add(node)
 	for _, b := range node.scanner.beacons {
 		node.beaconSet.Add(*b)
 	}
@@ -351,29 +471,31 @@ func TraverseScannerTree(rotations [][]mat.Matrix, node *ScannerNode) {
 		fmt.Println(node.scanner.id, "parent:", node.parent.scanner.id)
 	}
 	for _, child := range node.children {
-		TraverseScannerTree(rotations, child)
-		r, s1_rel_s0 := TransformBeacons(rotations, node.scanner, child.scanner)
-		for _, el := range child.beaconSet.ToSlice() {
-			b := el.(Vector)
-			newVector := b.Apply(r)
-			newVector = s1_rel_s0.Add(&newVector)
-			fmt.Println(b, "->", newVector)
-			node.beaconSet.Add(newVector)
+		if !seen.Contains(child) {
+			TraverseScannerTree(seen, child)
+			r, s1_rel_s0 := TransformBeacons(node.scanner, child.scanner)
+			for _, el := range child.beaconSet.ToSlice() {
+				b := el.(Vector)
+				newVector := Rotate(r, &b)
+				newVector = s1_rel_s0.Add(&newVector)
+				// fmt.Println(b, "->", newVector)
+				node.beaconSet.Add(newVector)
+			}
 		}
 	}
 	fmt.Println("total beacons for scanner", node.scanner.id, "=", node.beaconSet.Cardinality())
 }
 
 func Main() {
-	var rotations [][]mat.Matrix
-	for _, rx := range Rotations(xAxisRotation) {
-		for _, ry := range Rotations(yAxisRotation) {
-			for _, rz := range Rotations(zAxisRotation) {
-				rotations = append(rotations, []mat.Matrix{rx, ry, rz})
-			}
-		}
-	}
-	fmt.Println("rotation count:", len(rotations))
+	// var rotations [][]mat.Matrix
+	// for _, rx := range Rotations(xAxisRotation) {
+	// 	for _, ry := range Rotations(yAxisRotation) {
+	// 		for _, rz := range Rotations(zAxisRotation) {
+	// 			rotations = append(rotations, []mat.Matrix{rx, ry, rz})
+	// 		}
+	// 	}
+	// }
+	// fmt.Println("rotation count:", len(rotations))
 
 	scanners := parseFile("input")
 
@@ -383,7 +505,7 @@ func Main() {
 	for _, sc := range cs {
 		s1 := scanners[sc[0]]
 		s2 := scanners[sc[1]]
-		fmt.Println("--- Comparing", s1.id, "to", s2.id)
+		// fmt.Println("--- Comparing", s1.id, "to", s2.id)
 		s1d := s1.VectorDistances()
 		s2d := s2.VectorDistances()
 		s1set := mapset.NewSet()
@@ -396,19 +518,27 @@ func Main() {
 			}
 		}
 		if s1set.Cardinality() >= 12 {
-			fmt.Printf("Found %d pairs\n", s1set.Cardinality())
+			// fmt.Printf("Found %d pairs\n", s1set.Cardinality())
 			graph[s1.id] = append(graph[s1.id], s2.id)
 			graph[s2.id] = append(graph[s2.id], s1.id)
-		} else {
-			fmt.Println("Found <12 pairs")
 		}
-		fmt.Println("")
 	}
+
+	for i := 0; i < len(scanners); i++ {
+		id := strconv.Itoa(i)
+		_, found := graph[id]
+		if !found {
+			log.Fatal("not found " + id)
+		}
+		fmt.Println(id, "=>", graph[id])
+	}
+	// return
 
 	fmt.Println()
 	fmt.Println()
 	node := BuildScannerTree(scanners, graph)
-	TraverseScannerTree(rotations, node)
+	seen := mapset.NewSet()
+	TraverseScannerTree(seen, node)
 
 	// // keep track of a master map of beacons from s0 perspective
 	// // keep track of list of rotations to perform with each new level, e.g. [0 <- 1, 1 <- 4]
