@@ -55,11 +55,18 @@ func (image Image) String() string {
 	return s
 }
 
+var buffer int = 3
+
 func (image Image) LitCount() int {
+	minx, maxx, miny, maxy := image.MinMax()
 	count := 0
-	for _, bit := range image {
-		if bit == 1 {
-			count += 1
+	for x := minx + 1; x < maxx; x++ {
+		for y := miny + 1; y < maxy; y++ {
+			point := Point{x, y}
+			bit := image[point]
+			if bit == 1 {
+				count += 1
+			}
 		}
 	}
 	return count
@@ -70,13 +77,27 @@ func Bin2Int(s string) int {
 	return int(i)
 }
 
-var buffer int = 0
-
-func (image Image) Apply(algo Algo) Image {
+func (image Image) Apply(algo Algo, toggleInfiniteSpace bool) Image {
 	newImage := make(Image)
+	infiniteSpaceStaysDark := algo[0] == 0
 	minx, maxx, miny, maxy := image.MinMax()
 	for x := minx - buffer; x <= maxx+buffer; x++ {
 		for y := miny - buffer; y <= maxy+buffer; y++ {
+			if !(x >= minx && x <= maxx && y >= miny && y <= maxy) {
+				point := Point{x, y}
+				if !infiniteSpaceStaysDark && toggleInfiniteSpace {
+					image[point] = 1
+				}
+			}
+		}
+	}
+	minx -= 2
+	maxx += 2
+	miny -= 2
+	maxy += 2
+
+	for x := minx; x <= maxx; x++ {
+		for y := miny; y <= maxy; y++ {
 			point := Point{x, y}
 			var points = []Point{
 				{point.x - 1, point.y - 1},
@@ -99,7 +120,7 @@ func (image Image) Apply(algo Algo) Image {
 			// fmt.Println(point, s, num, bit)
 		}
 	}
-	fmt.Println(newImage)
+	// fmt.Println(newImage)
 	return newImage
 }
 
@@ -150,8 +171,10 @@ func Main() {
 	algo, image := parseFile("input")
 	fmt.Println(algo)
 	fmt.Println(image)
-	image = image.Apply(algo)
-	image = image.Apply(algo)
-	fmt.Println()
+	for i := 0; i < 50; i++ {
+		toggleInfiniteSpace := math.Mod(float64(i), 2) == 1
+		image = image.Apply(algo, toggleInfiniteSpace)
+	}
+	fmt.Println(image)
 	fmt.Println(image.LitCount())
 }
