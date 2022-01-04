@@ -1,7 +1,7 @@
 package main
 
-import "github.com/jdrake/aoc2021/internal/day20"
+import "github.com/jdrake/aoc2021/internal/day21"
 
 func main() {
-	day20.Main()
+	day21.Main()
 }
